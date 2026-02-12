@@ -1,0 +1,315 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import type { Node, Edge } from '@vue-flow/core'
+import { nanoid } from 'nanoid'
+import type { PipelineDefinition, NodeType, NodeDef, EdgeDef } from '~~/shared/types/pipeline'
+import type { NodeState } from '~~/shared/types/execution'
+import { createDefaultNodeState } from '~~/shared/types/execution'
+import { DEFAULT_PARAMS, type NodeParamsMap } from '~~/shared/types/node-params'
+import type { ImageFrame } from '~~/shared/types/image-frame'
+import { getDownstreamNodes } from '~/utils/graph'
+
+export const usePipelineStore = defineStore('pipeline', () => {
+  // Vue Flow graph state
+  const nodes = ref<Node[]>([])
+  const edges = ref<Edge[]>([])
+
+  // Selection
+  const selectedNodeId = ref<string | null>(null)
+
+  // Execution state
+  const isRunning = ref(false)
+  const nodeStates = ref<Map<string, NodeState>>(new Map())
+  const abortController = ref<AbortController | null>(null)
+
+  // Input images (stored by input node ID)
+  const inputImages = ref<Map<string, ImageFrame>>(new Map())
+
+  // File handle for "Save" vs "Save As"
+  const fileHandle = ref<FileSystemFileHandle | null>(null)
+  const fileName = ref<string | null>(null)
+  const isDirty = ref(false)
+
+  // Computed
+  const selectedNode = computed(() =>
+    nodes.value.find(n => n.id === selectedNodeId.value) || null,
+  )
+
+  const selectedNodeState = computed(() =>
+    selectedNodeId.value ? nodeStates.value.get(selectedNodeId.value) || null : null,
+  )
+
+  const outputNode = computed(() =>
+    nodes.value.find(n => n.type === 'output') || null,
+  )
+
+  const outputImage = computed<ImageFrame | null>(() => {
+    const out = outputNode.value
+    if (!out) return null
+    return nodeStates.value.get(out.id)?.output || null
+  })
+
+  // Actions
+  function selectNode(nodeId: string | null) {
+    selectedNodeId.value = nodeId
+  }
+
+  function getNodeState(nodeId: string): NodeState {
+    if (!nodeStates.value.has(nodeId)) {
+      nodeStates.value.set(nodeId, createDefaultNodeState())
+    }
+    return nodeStates.value.get(nodeId)!
+  }
+
+  function updateNodeState(nodeId: string, update: Partial<NodeState>) {
+    const state = getNodeState(nodeId)
+    Object.assign(state, update)
+    // Trigger reactivity
+    nodeStates.value = new Map(nodeStates.value)
+  }
+
+  function invalidateNode(id: string) {
+    const state = getNodeState(id)
+    state.cacheKey = null
+    state.status = 'idle'
+    state.output = null
+  }
+
+  function invalidateDownstream(nodeId: string) {
+    const edgeDefs = edges.value.map(e => ({
+      id: e.id,
+      source: e.source,
+      sourceHandle: e.sourceHandle || 'output',
+      target: e.target,
+      targetHandle: e.targetHandle || 'input',
+    })) as EdgeDef[]
+    for (const id of getDownstreamNodes(nodeId, edgeDefs)) {
+      invalidateNode(id)
+    }
+  }
+
+  function updateNodeParams(nodeId: string, params: Record<string, unknown>) {
+    const node = nodes.value.find(n => n.id === nodeId)
+    if (node) {
+      node.data = { ...node.data, params: { ...node.data.params, ...params } }
+      isDirty.value = true
+      invalidateNode(nodeId)
+      invalidateDownstream(nodeId)
+      nodeStates.value = new Map(nodeStates.value)
+    }
+  }
+
+  function setInputImage(nodeId: string, frame: ImageFrame) {
+    inputImages.value.set(nodeId, frame)
+    inputImages.value = new Map(inputImages.value)
+    isDirty.value = true
+    invalidateDownstream(nodeId)
+    updateNodeState(nodeId, { output: frame, status: 'done', cacheKey: null })
+  }
+
+  function addNode(type: NodeType, position: { x: number; y: number }) {
+    const id = nanoid(8)
+    const params = { ...(DEFAULT_PARAMS[type] as Record<string, unknown>) }
+    const labels: Record<NodeType, string> = {
+      'input': 'Image Input',
+      'output': 'Output',
+      'remove-bg': 'Remove BG',
+      'normalize': 'Normalize',
+      'upscale': 'Upscale 2x',
+      'outline': 'Outline',
+    }
+
+    nodes.value.push({
+      id,
+      type,
+      position,
+      label: labels[type],
+      data: { params },
+    } as Node)
+
+    isDirty.value = true
+    return id
+  }
+
+  function removeNode(nodeId: string) {
+    const node = nodes.value.find(n => n.id === nodeId)
+    if (!node) return
+    // Prevent deleting input/output nodes
+    if (node.type === 'input' || node.type === 'output') return
+
+    nodes.value = nodes.value.filter(n => n.id !== nodeId)
+    edges.value = edges.value.filter(e => e.source !== nodeId && e.target !== nodeId)
+    nodeStates.value.delete(nodeId)
+    nodeStates.value = new Map(nodeStates.value)
+
+    if (selectedNodeId.value === nodeId) {
+      selectedNodeId.value = null
+    }
+    isDirty.value = true
+  }
+
+  function clearExecution() {
+    for (const [id] of nodeStates.value) {
+      nodeStates.value.set(id, createDefaultNodeState())
+    }
+    nodeStates.value = new Map(nodeStates.value)
+    // Preserve input images
+    for (const [id, frame] of inputImages.value) {
+      updateNodeState(id, { output: frame, status: 'done' })
+    }
+  }
+
+  function loadDefaultPipeline() {
+    const inputId = nanoid(8)
+    const removeBgId = nanoid(8)
+    const normalizeId = nanoid(8)
+    const outlineId = nanoid(8)
+    const outputId = nanoid(8)
+
+    nodes.value = [
+      {
+        id: inputId,
+        type: 'input',
+        position: { x: 50, y: 200 },
+        label: 'Image Input',
+        data: { params: { ...DEFAULT_PARAMS['input'] } },
+      },
+      {
+        id: removeBgId,
+        type: 'remove-bg',
+        position: { x: 350, y: 200 },
+        label: 'Remove BG',
+        data: { params: { ...DEFAULT_PARAMS['remove-bg'] } },
+      },
+      {
+        id: normalizeId,
+        type: 'normalize',
+        position: { x: 650, y: 200 },
+        label: 'Normalize',
+        data: { params: { ...DEFAULT_PARAMS['normalize'] } },
+      },
+      {
+        id: outlineId,
+        type: 'outline',
+        position: { x: 950, y: 200 },
+        label: 'Outline',
+        data: { params: { ...DEFAULT_PARAMS['outline'] } },
+      },
+      {
+        id: outputId,
+        type: 'output',
+        position: { x: 1250, y: 200 },
+        label: 'Output',
+        data: { params: { ...DEFAULT_PARAMS['output'] } },
+      },
+    ] as Node[]
+
+    edges.value = [
+      { id: nanoid(8), source: inputId, target: removeBgId, sourceHandle: 'output', targetHandle: 'input' },
+      { id: nanoid(8), source: removeBgId, target: normalizeId, sourceHandle: 'output', targetHandle: 'input' },
+      { id: nanoid(8), source: normalizeId, target: outlineId, sourceHandle: 'output', targetHandle: 'input' },
+      { id: nanoid(8), source: outlineId, target: outputId, sourceHandle: 'output', targetHandle: 'input' },
+    ] as Edge[]
+
+    nodeStates.value = new Map()
+    inputImages.value = new Map()
+    fileHandle.value = null
+    fileName.value = null
+    isDirty.value = false
+    selectedNodeId.value = null
+  }
+
+  function serializePipeline(): PipelineDefinition {
+    return {
+      version: 1,
+      nodes: nodes.value.map(n => ({
+        id: n.id,
+        type: n.type as NodeType,
+        position: { x: n.position.x, y: n.position.y },
+        params: n.data?.params || {},
+        label: (n.label as string) || undefined,
+      })),
+      edges: edges.value.map(e => ({
+        id: e.id,
+        source: e.source,
+        sourceHandle: e.sourceHandle || 'output',
+        target: e.target,
+        targetHandle: e.targetHandle || 'input',
+      })),
+    }
+  }
+
+  function loadPipeline(def: PipelineDefinition) {
+    // Preserve input images: grab the first existing input image
+    const previousImage = inputImages.value.values().next().value as ImageFrame | undefined
+
+    nodes.value = def.nodes.map(n => ({
+      id: n.id,
+      type: n.type,
+      position: { x: n.position.x, y: n.position.y },
+      label: n.label || n.type,
+      data: { params: n.params },
+    })) as Node[]
+
+    edges.value = def.edges.map(e => ({
+      id: e.id,
+      source: e.source,
+      sourceHandle: e.sourceHandle,
+      target: e.target,
+      targetHandle: e.targetHandle,
+    })) as Edge[]
+
+    nodeStates.value = new Map()
+    inputImages.value = new Map()
+
+    // Re-assign the previous input image to the new input node(s)
+    if (previousImage) {
+      for (const node of def.nodes) {
+        if (node.type === 'input') {
+          inputImages.value.set(node.id, previousImage)
+          nodeStates.value.set(node.id, {
+            ...createDefaultNodeState(),
+            output: previousImage,
+            status: 'done',
+          })
+        }
+      }
+      inputImages.value = new Map(inputImages.value)
+      nodeStates.value = new Map(nodeStates.value)
+    }
+
+    isDirty.value = false
+    selectedNodeId.value = null
+  }
+
+  return {
+    // State
+    nodes,
+    edges,
+    selectedNodeId,
+    isRunning,
+    nodeStates,
+    abortController,
+    inputImages,
+    fileHandle,
+    fileName,
+    isDirty,
+    // Computed
+    selectedNode,
+    selectedNodeState,
+    outputNode,
+    outputImage,
+    // Actions
+    selectNode,
+    getNodeState,
+    updateNodeState,
+    updateNodeParams,
+    setInputImage,
+    addNode,
+    removeNode,
+    clearExecution,
+    loadDefaultPipeline,
+    serializePipeline,
+    loadPipeline,
+  }
+})
