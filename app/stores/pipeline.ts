@@ -19,6 +19,7 @@ export const usePipelineStore = defineStore('pipeline', () => {
 
   // Execution state
   const isRunning = ref(false)
+  const hasRun = ref(false)
   const nodeStates = ref<Map<string, NodeState>>(new Map())
   const abortController = ref<AbortController | null>(null)
 
@@ -288,6 +289,7 @@ export const usePipelineStore = defineStore('pipeline', () => {
     edges,
     selectedNodeId,
     isRunning,
+    hasRun,
     nodeStates,
     abortController,
     inputImages,

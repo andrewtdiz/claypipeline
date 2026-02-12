@@ -22,8 +22,13 @@ const store = usePipelineStore()
 const { savePipeline, savePipelineAs, openPipeline, newPipeline } = useFileIo()
 const { run: runPipeline, stop, runError } = usePipelineRunner()
 
+const highlightRun = computed(() =>
+  store.inputImages.size > 0 && !store.hasRun && !store.isRunning,
+)
+
 async function run() {
   try {
+    store.hasRun = true
     await runPipeline()
   } catch (e: any) {
     console.error('Pipeline run error:', e)
@@ -158,17 +163,15 @@ onUnmounted(() => {
     >
       {{ runError }}
     </span>
-    <span
-      class="text-[10px] px-1.5 py-0.5 rounded"
-      :class="gpuSupported ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'"
-    >
-      {{ gpuSupported ? 'WebGPU' : 'WASM' }}
-    </span>
-
     <!-- Run/Stop -->
     <button
       v-if="!store.isRunning"
-      class="flex items-center px-3 py-1 text-xs font-medium rounded bg-gray-600 hover:bg-gray-500 text-white transition-colors"
+      :class="[
+        'flex items-center px-3 py-1 text-xs font-medium rounded text-white transition-colors',
+        highlightRun
+          ? 'bg-[#535DFF] hover:bg-[#4750e0] shadow-[0_0_14px_rgba(83,93,255,0.5)] run-glow'
+          : 'bg-gray-600 hover:bg-gray-500',
+      ]"
       @click="run"
     >
       Run Pipeline
@@ -182,4 +185,25 @@ onUnmounted(() => {
       Stop
     </button>
   </div>
+
+  <!-- WebGPU/WASM tag -->
+  <Teleport to="body">
+    <span
+      class="fixed bottom-2 right-2 z-50 text-[10px] px-1.5 py-0.5 rounded"
+      :class="gpuSupported ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'"
+    >
+      {{ gpuSupported ? 'WebGPU' : 'WASM' }}
+    </span>
+  </Teleport>
 </template>
+
+<style scoped>
+.run-glow {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(83, 93, 255, 0.4); }
+  50% { box-shadow: 0 0 20px rgba(83, 93, 255, 0.7); }
+}
+</style>
