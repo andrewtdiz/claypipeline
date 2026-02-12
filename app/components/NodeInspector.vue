@@ -184,6 +184,18 @@ const statusClass = computed(() => {
         <!-- Remove BG params -->
         <template v-if="nodeType === 'remove-bg' && params">
           <label class="block text-xs">
+            <span class="text-gray-400">Model Quality</span>
+            <select
+              :value="params.dtype || 'q8'"
+              class="w-full mt-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-300 text-xs"
+              @change="updateParam('dtype', ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="q8">Quantized 8-bit (~45 MB)</option>
+              <option value="fp16">Half precision (~88 MB)</option>
+              <option value="fp32">Full precision (~176 MB)</option>
+            </select>
+          </label>
+          <label class="block text-xs">
             <span class="text-gray-400">Threshold</span>
             <input
               type="range"

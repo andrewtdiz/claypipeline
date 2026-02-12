@@ -4,10 +4,15 @@ import { bitmapToImageData, imageDataToBitmap } from '~/utils/image'
 
 let segmenter: any = null
 let loadingPromise: Promise<any> | null = null
+let loadedDtype: string | null = null
 
-async function getSegmenter(device: string, onStatus?: (msg: string) => void) {
-  if (segmenter) return segmenter
-  if (loadingPromise) return loadingPromise
+async function getSegmenter(device: string, dtype: string, onStatus?: (msg: string) => void, onDownloadProgress?: (progress: number) => void) {
+  if (segmenter && loadedDtype === dtype) return segmenter
+  if (loadingPromise && loadedDtype === dtype) return loadingPromise
+
+  // Reset if dtype changed
+  segmenter = null
+  loadingPromise = null
 
   loadingPromise = (async () => {
     onStatus?.('Loading transformers.js...')
@@ -28,23 +33,42 @@ async function getSegmenter(device: string, onStatus?: (msg: string) => void) {
       }
     }
 
-    onStatus?.(`Loading RMBG-1.4 on ${actualDevice}...`)
+    onStatus?.(`Downloading model...`)
+    onDownloadProgress?.(0.01)
+    let largestFile = ''
+    let largestTotal = 0
+    const progress_callback = (event: any) => {
+      if (event.status === 'progress' && event.total) {
+        if (event.total > largestTotal) {
+          largestFile = event.file
+          largestTotal = event.total
+        }
+        if (event.file === largestFile) {
+          onDownloadProgress?.(event.loaded / event.total)
+        }
+      }
+    }
+
     try {
       segmenter = await pipeline('image-segmentation', 'briaai/RMBG-1.4', {
         device: actualDevice as 'webgpu' | 'wasm',
-        dtype: 'fp32',
+        dtype,
+        progress_callback,
       })
     } catch (e) {
       if (actualDevice === 'webgpu') {
         onStatus?.('WebGPU failed, falling back to WASM...')
         segmenter = await pipeline('image-segmentation', 'briaai/RMBG-1.4', {
           device: 'wasm',
-          dtype: 'fp32',
+          dtype,
+          progress_callback,
         })
       } else {
         throw e
       }
     }
+    loadedDtype = dtype
+    onStatus?.(null as any)
     return segmenter
   })()
 
@@ -66,9 +90,17 @@ export async function executeRemoveBg(
   if (!input) throw new Error('No input image')
 
   const device = (params.device as string) || 'auto'
+  const dtype = (params.dtype as string) || 'fp16'
 
   ctx.onProgress('', 0.05)
-  const model = await getSegmenter(device, (msg) => console.log('[remove-bg]', msg))
+  const model = await getSegmenter(
+    device,
+    dtype,
+    (msg) => ctx.onStatusMessage?.('', msg),
+    (progress) => ctx.onDownloadProgress?.('', progress),
+  )
+  ctx.onStatusMessage?.('', null)
+  ctx.onDownloadProgress?.('', null as any)
   ctx.onProgress('', 0.2)
 
   if (ctx.abortSignal.aborted) throw new DOMException('Aborted', 'AbortError')

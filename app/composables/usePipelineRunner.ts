@@ -92,6 +92,12 @@ export function usePipelineRunner() {
       onStatus: (nodeId, status, error) => {
         store.updateNodeState(nodeId, { status, error: error || null })
       },
+      onStatusMessage: (nodeId, message) => {
+        store.updateNodeState(nodeId, { statusMessage: message })
+      },
+      onDownloadProgress: (nodeId, progress) => {
+        store.updateNodeState(nodeId, { downloadProgress: progress })
+      },
     }
 
     try {
@@ -159,6 +165,8 @@ export function usePipelineRunner() {
               ...ctx,
               onProgress: (_id, progress) => ctx.onProgress(nodeId, progress),
               onStatus: (_id, status, error) => ctx.onStatus(nodeId, status, error),
+              onStatusMessage: (_id, message) => ctx.onStatusMessage?.(nodeId, message),
+              onDownloadProgress: (_id, progress) => ctx.onDownloadProgress?.(nodeId, progress),
             }
             output = await executor(nodeCtx, inputs, params)
           }
@@ -167,6 +175,8 @@ export function usePipelineRunner() {
           store.updateNodeState(nodeId, {
             status: 'done',
             progress: 1,
+            statusMessage: null,
+            downloadProgress: null,
             output,
             cacheKey,
             error: null,

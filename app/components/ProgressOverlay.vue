@@ -4,7 +4,7 @@ import { usePipelineStore } from '~/stores/pipeline'
 const store = usePipelineStore()
 
 const runningNodes = computed(() => {
-  const running: { id: string; label: string; progress: number }[] = []
+  const running: { id: string; label: string; progress: number; downloadProgress: number | null }[] = []
   for (const node of store.nodes) {
     const state = store.nodeStates.get(node.id)
     if (state && (state.status === 'running' || state.status === 'pending')) {
@@ -12,6 +12,7 @@ const runningNodes = computed(() => {
         id: node.id,
         label: (node.label as string) || node.type || node.id,
         progress: state.progress,
+        downloadProgress: state.downloadProgress,
       })
     }
   }
@@ -40,6 +41,15 @@ const runningNodes = computed(() => {
             class="h-full bg-gray-500 transition-all duration-300"
             :style="{ width: `${node.progress * 100}%` }"
           />
+        </div>
+        <div v-if="node.downloadProgress != null" class="mt-1.5">
+          <div class="text-[10px] text-gray-500 mb-0.5">Downloading model</div>
+          <div class="h-1 bg-gray-800 rounded overflow-hidden">
+            <div
+              class="h-full bg-gray-500 transition-all duration-300"
+              :style="{ width: `${node.downloadProgress * 100}%` }"
+            />
+          </div>
         </div>
       </div>
     </div>

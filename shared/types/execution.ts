@@ -5,6 +5,8 @@ export type NodeStatus = 'idle' | 'pending' | 'running' | 'done' | 'error' | 'ca
 export interface NodeState {
   status: NodeStatus
   progress: number
+  statusMessage: string | null
+  downloadProgress: number | null
   error: string | null
   output: ImageFrame | null
   cacheKey: string | null
@@ -16,12 +18,16 @@ export interface ExecutionContext {
   gpuDevice: GPUDevice | null
   onProgress: (nodeId: string, progress: number) => void
   onStatus: (nodeId: string, status: NodeStatus, error?: string) => void
+  onStatusMessage?: (nodeId: string, message: string | null) => void
+  onDownloadProgress?: (nodeId: string, progress: number | null) => void
 }
 
 export function createDefaultNodeState(): NodeState {
   return {
     status: 'idle',
     progress: 0,
+    statusMessage: null,
+    downloadProgress: null,
     error: null,
     output: null,
     cacheKey: null,
