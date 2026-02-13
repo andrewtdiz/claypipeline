@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { Node, Edge } from '@vue-flow/core'
 import { nanoid } from 'nanoid'
 import type { PipelineDefinition, NodeType, NodeDef, EdgeDef } from '~~/shared/types/pipeline'
@@ -8,6 +8,8 @@ import { createDefaultNodeState } from '~~/shared/types/execution'
 import { DEFAULT_PARAMS, type NodeParamsMap } from '~~/shared/types/node-params'
 import type { ImageFrame } from '~~/shared/types/image-frame'
 import { getDownstreamNodes } from '~/utils/graph'
+
+const STORAGE_KEY = 'pipemagic:pipeline'
 
 export const usePipelineStore = defineStore('pipeline', () => {
   // Vue Flow graph state
@@ -284,6 +286,30 @@ export const usePipelineStore = defineStore('pipeline', () => {
     selectedNodeId.value = null
   }
 
+  // Persist pipeline to localStorage
+  function saveToStorage() {
+    if (import.meta.client && nodes.value.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(serializePipeline()))
+    }
+  }
+
+  function restoreFromStorage(): boolean {
+    if (!import.meta.client) return false
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) return false
+      const def = JSON.parse(raw) as PipelineDefinition
+      if (def.nodes?.length > 0) {
+        loadPipeline(def)
+        return true
+      }
+    } catch { /* ignore corrupt data */ }
+    return false
+  }
+
+  // Auto-save on any node/edge/param change
+  watch([nodes, edges], saveToStorage, { deep: true })
+
   return {
     // State
     nodes,
@@ -314,5 +340,6 @@ export const usePipelineStore = defineStore('pipeline', () => {
     loadDefaultPipeline,
     serializePipeline,
     loadPipeline,
+    restoreFromStorage,
   }
 })

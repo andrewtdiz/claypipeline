@@ -4,7 +4,9 @@ import { usePipelineStore } from '~/stores/pipeline'
 const store = usePipelineStore()
 
 onMounted(() => {
-  store.loadDefaultPipeline()
+  if (!store.restoreFromStorage()) {
+    store.loadDefaultPipeline()
+  }
 })
 </script>
 
