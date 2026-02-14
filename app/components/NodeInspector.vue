@@ -63,7 +63,7 @@ const statusClass = computed(() => {
 </script>
 
 <template>
-  <div class="w-72 bg-gray-900 border-l border-gray-800 flex flex-col overflow-y-auto flex-shrink-0">
+  <div class="flex flex-col overflow-y-auto h-full">
     <div v-if="!node" class="flex-1 flex items-center justify-center">
       <span class="text-xs text-gray-600">Select a node to inspect</span>
     </div>

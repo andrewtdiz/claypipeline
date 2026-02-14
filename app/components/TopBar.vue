@@ -19,29 +19,34 @@ import { DEFAULT_PARAMS } from "~~/shared/types/node-params";
 import type { PipelineDefinition } from "~~/shared/types/pipeline";
 import type { MenuItem } from "~/components/DropdownMenu.vue";
 
+const emit = defineEmits<{ "toggle-about": [] }>();
+
 const store = usePipelineStore();
 const { savePipeline, savePipelineAs, openPipeline, newPipeline } = useFileIo();
 const { run: runPipeline, stop, runError } = usePipelineRunner();
 
 const highlightRun = computed(() => {
   if (store.isRunning || store.inputImages.size === 0) return false;
-  return store.nodes.some(n => {
+  return store.nodes.some((n) => {
     const state = store.nodeStates.get(n.id);
-    return !state || (state.status !== 'done' && state.status !== 'cached');
+    return !state || (state.status !== "done" && state.status !== "cached");
   });
 });
 
 // Auto-run pipeline when an image is uploaded
-watch(() => store.inputImages, () => {
-  if (store.inputImages.size > 0) {
-    if (store.isRunning) {
-      stop();
-      setTimeout(() => run(), 50);
-    } else {
-      run();
+watch(
+  () => store.inputImages,
+  () => {
+    if (store.inputImages.size > 0) {
+      if (store.isRunning) {
+        stop();
+        setTimeout(() => run(), 50);
+      } else {
+        run();
+      }
     }
-  }
-});
+  },
+);
 
 async function run() {
   try {
@@ -194,7 +199,11 @@ const fileMenuItems = computed<MenuItem[]>(() => [
 ]);
 
 const presetMenuItems = computed<MenuItem[]>(() => [
-  { label: "Sticker", icon: SparklesIcon, action: () => loadPreset(buildStickerPreset) },
+  {
+    label: "Sticker",
+    icon: SparklesIcon,
+    action: () => loadPreset(buildStickerPreset),
+  },
 ]);
 
 function addNodeAtCenter(type: NodeType) {
@@ -278,6 +287,13 @@ onUnmounted(() => {
     <DropdownMenu label="File" :items="fileMenuItems" />
     <DropdownMenu label="Add Node" :items="addNodeItems" />
     <DropdownMenu label="Presets" :items="presetMenuItems" />
+    <!-- About toggle -->
+    <button
+      class="px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
+      @click="emit('toggle-about')"
+    >
+      About
+    </button>
 
     <!-- Spacer -->
     <div class="flex-1" />
