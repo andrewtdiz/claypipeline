@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid'
 import { usePipelineStore } from '~/stores/pipeline'
 import type { PipelineDefinition } from '~~/shared/types/pipeline'
 
@@ -114,7 +115,18 @@ export function useFileIo() {
       const ok = confirm('You have unsaved changes. Discard them?')
       if (!ok) return
     }
-    store.loadDefaultPipeline()
+    const inputId = nanoid(8)
+    const outputId = nanoid(8)
+    store.loadPipeline({
+      version: 1,
+      nodes: [
+        { id: inputId, type: 'input', position: { x: 100, y: 200 }, params: { maxSize: 2048, fit: 'contain' }, label: 'Image Input' },
+        { id: outputId, type: 'output', position: { x: 500, y: 200 }, params: { format: 'png', quality: 0.92 }, label: 'Output' },
+      ],
+      edges: [
+        { id: nanoid(8), source: inputId, sourceHandle: 'output', target: outputId, targetHandle: 'input' },
+      ],
+    })
     store.fileHandle = null
     store.fileName = null
   }
