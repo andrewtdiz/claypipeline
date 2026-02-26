@@ -1,0 +1,103 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+@import "@xyflow/react/dist/style.css";
+
+@theme {
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f5f5f5;
+  --color-gray-200: #e5e5e5;
+  --color-gray-300: #d4d4d4;
+  --color-gray-400: #a3a3a3;
+  --color-gray-500: #737373;
+  --color-gray-600: #525252;
+  --color-gray-700: #404040;
+  --color-gray-800: #262626;
+  --color-gray-900: #171717;
+  --color-gray-950: #0a0a0a;
+  --color-gray-1200: #050505;
+  --color-background: #0f0f0f;
+  --color-foreground: #e0e0e0;
+  --color-card: #171717;
+  --color-card-foreground: #e5e5e5;
+  --color-popover: #171717;
+  --color-popover-foreground: #e5e5e5;
+  --color-primary: #535dff;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #262626;
+  --color-secondary-foreground: #f5f5f5;
+  --color-muted: #262626;
+  --color-muted-foreground: #a3a3a3;
+  --color-accent: #262626;
+  --color-accent-foreground: #f5f5f5;
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #333333;
+  --color-input: #333333;
+  --color-ring: #535dff;
+  --animate-run-glow: run-glow 2s ease-in-out infinite;
+  --animate-shine: shine 3s ease-in-out infinite;
+}
+
+@keyframes run-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 8px rgba(83, 93, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(83, 93, 255, 0.7);
+  }
+}
+
+@keyframes shine {
+  0% {
+    opacity: 0;
+    background-position: 150% 50%;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+    background-position: -50% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+
+  body {
+    @apply bg-background text-foreground overflow-hidden;
+  }
+
+  #root {
+    @apply overflow-hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+}

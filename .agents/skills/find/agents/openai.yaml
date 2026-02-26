@@ -1,0 +1,4 @@
+interface:
+  display_name: "find"
+  short_description: "Search a codebase for relevant files and implementation details"
+  default_prompt: "Use $find to search the codebase"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "refactor review"
+  short_description: "Review feature architecture for maintainability and clean flow"
+  default_prompt: "Use $refactor to review a feature implementation for separation of concerns, explicit data flow, and maintainability risks."

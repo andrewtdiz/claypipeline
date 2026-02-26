@@ -1,0 +1,4 @@
+interface:
+  display_name: "loop"
+  short_description: "Complete plan tasks end-to-end without repeated prompts"
+  default_prompt: "Use $loop to execute a full plan continuously, verifying each step and only pausing for destructive actions or blockers."

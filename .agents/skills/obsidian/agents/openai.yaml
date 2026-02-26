@@ -1,0 +1,4 @@
+interface:
+  display_name: "obsidian"
+  short_description: "Read and write product and cross-project markdown notes"
+  default_prompt: "Use $obsidian to read or update markdown notes in /mnt/c/Obsidian/ClayEngine."

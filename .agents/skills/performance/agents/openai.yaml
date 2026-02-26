@@ -1,0 +1,4 @@
+interface:
+  display_name: "performance review"
+  short_description: "Review feature code for critical performance and memory risks"
+  default_prompt: "Use $performance to inspect feature implementations for critical or high-severity performance and memory management issues."
